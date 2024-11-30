@@ -37,7 +37,6 @@ SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the si
 
 class ChunkExtractor:
 
-    # @ray.remote
     def _extract_chunks(self, interaction_id, html_source):
         """
         Extracts and returns chunks from given HTML source.
@@ -86,24 +85,9 @@ class ChunkExtractor:
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing an array of chunks and an array of corresponding interaction IDs.
         """
-        # # Setup parallel chunk extraction using ray remote
-        # ray_response_refs = [
-        #     self._extract_chunks.remote(
-        #         self,
-        #         interaction_id=batch_interaction_ids[idx],
-        #         html_source=html_text["page_result"]
-        #     )
-        #     for idx, search_results in enumerate(batch_search_results)
-        #     for html_text in search_results
-        # ]
-
         # Wait until all sentence extractions are complete
         # and collect chunks for every interaction_id separately
         chunk_dictionary = defaultdict(list)
-
-        # for response_ref in ray_response_refs:
-        #     interaction_id, _chunks = ray.get(response_ref)  # Blocking call until parallel execution is complete
-        #     chunk_dictionary[interaction_id].extend(_chunks)
 
         # Process each HTML source sequentially
         for idx, search_results in enumerate(batch_search_results):
