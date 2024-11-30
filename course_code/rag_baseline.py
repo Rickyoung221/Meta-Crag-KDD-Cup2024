@@ -1,9 +1,7 @@
-import os
 from collections import defaultdict
 from typing import Any, Dict, List
 
 import numpy as np
-import ray
 import torch
 import vllm
 from blingfire import text_to_sentences_and_offsets
@@ -37,6 +35,9 @@ SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the si
 
 class ChunkExtractor:
 
+    def __init__(self, sentence_group_size):
+        self.sentence_group_size = sentence_group_size
+
     def _extract_chunks(self, interaction_id, html_source):
         """
         Extracts and returns chunks from given HTML source.
@@ -64,15 +65,35 @@ class ChunkExtractor:
         _, offsets = text_to_sentences_and_offsets(text)
 
         # Initialize a list to store sentences
-        chunks = []
+        sentences = []
 
         # Iterate through the list of offsets and extract sentences
         for start, end in offsets:
             # Extract the sentence and limit its length
             sentence = text[start:end][:MAX_CONTEXT_SENTENCE_LENGTH]
-            chunks.append(sentence)
+            sentences.append(sentence)
+
+        chunks = self._group_sentences(sentences) if self.sentence_group_size else sentences
 
         return interaction_id, chunks
+
+    def _group_sentences(self, sentences):
+        """
+        Groups sentences into chunks of a fixed size.
+
+        Parameters:
+            sentences (List[str]): List of sentences.
+            group_size (int): Number of sentences per group.
+
+        Returns:
+            List[str]: List of grouped sentences as chunks.
+        """
+        group_size = self.sentence_group_size
+        grouped_chunks = []
+        for i in range(0, len(sentences), group_size):
+            grouped_chunk = " ".join(sentences[i:i + group_size])
+            grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
+        return grouped_chunks
 
     def extract_chunks(self, batch_interaction_ids, batch_search_results):
         """
@@ -135,7 +156,7 @@ class RAGModel:
     """
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
-        self.chunk_extractor = ChunkExtractor()
+        self.chunk_extractor = ChunkExtractor(sentence_group_size=3)
 
     def initialize_models(self, llm_name, is_server, vllm_server):
         self.llm_name = llm_name
