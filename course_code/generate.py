@@ -7,7 +7,6 @@ import argparse
 from loguru import logger
 from tqdm.auto import tqdm
 
-
 def load_data_in_batches(dataset_path, batch_size, split=-1):
     """
     Generator function that reads data from a compressed file and yields batches of data.
@@ -42,7 +41,7 @@ def load_data_in_batches(dataset_path, batch_size, split=-1):
                         yield batch
                         batch = initialize_batch()
                 except json.JSONDecodeError:
-                    logger.warn("Warning: Failed to decode a line.")
+                    logger.warning("Warning: Failed to decode a line.")
             # Yield any remaining data as the last batch
             if batch["query"]:
                 yield batch
@@ -97,8 +96,8 @@ if __name__ == "__main__":
                                  ],
                         )
 
-    parser.add_argument("--llm_name", type=str, default="meta-llama/Llama-3.2-3B-Instruct",
-                        choices=["meta-llama/Llama-3.2-3B-Instruct",
+    parser.add_argument("--llm_name", type=str, default="meta-llama/Llama-3.2-1B-Instruct",
+                        choices=["meta-llama/Llama-3.2-1B-Instruct",
                                  "google/gemma-2-2b-it",
                                  # can add more llm models here
                                  ])
@@ -108,7 +107,7 @@ if __name__ == "__main__":
                         help="URL of the vLLM server if is_server is True. The port number may vary.")
 
     args = parser.parse_args()
-    print(args.is_server)
+    print("Server mode?", args.is_server)
 
     dataset_path = args.dataset_path
     dataset = dataset_path.split("/")[0]
@@ -122,7 +121,7 @@ if __name__ == "__main__":
 
     llm_name = args.llm_name
     _llm_name = llm_name.split("/")[-1]
-    
+
     model_name = args.model_name
     if model_name == "vanilla_baseline":
         from vanilla_baseline import InstructModel
@@ -130,8 +129,10 @@ if __name__ == "__main__":
     elif model_name == "rag_baseline":
         from rag_baseline import RAGModel
         model = RAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
-    # elif model_name == "your_model":
-    #     add your model here
+    elif model_name == "NewRAGModel":
+        # add your model here
+        from new_rag_baseline import NewRAGModel
+        model = NewRAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
     else:
         raise ValueError("Model name not recognized.")
 

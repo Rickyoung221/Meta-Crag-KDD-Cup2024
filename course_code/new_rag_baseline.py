@@ -10,34 +10,9 @@ from blingfire import text_to_sentences_and_offsets
 from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer
 
-######################################################################################################
-######################################################################################################
-###
-### IMPORTANT !!!
-### Before submitting, please follow the instructions in the docs below to download and check in :
-### the model weighs.
-###
-###  https://gitlab.aicrowd.com/aicrowd/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/meta-comphrehensive-rag-benchmark-starter-kit/-/blob/master/docs/download_baseline_model_weights.md
-###
-### And please pay special attention to the comments that start with "TUNE THIS VARIABLE"
-###                        as they depend on your model and the available GPU resources.
-###
-### DISCLAIMER: This baseline has NOT been tuned for performance
-###             or efficiency, and is provided as is for demonstration.
-######################################################################################################
+from openai import OpenAI
 
-
-# Load the environment variable that specifies the URL of the MockAPI. This URL is essential
-# for accessing the correct API endpoint in Task 2 and Task 3. The value of this environment variable
-# may vary across different evaluation settings, emphasizing the importance of dynamically obtaining
-# the API URL to ensure accurate endpoint communication.
-
-# Please refer to https://gitlab.aicrowd.com/aicrowd/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/crag-mock-api
-# for more information on the MockAPI.
-#
-# **Note**: This environment variable will not be available for Task 1 evaluations.
-CRAG_MOCK_API_URL = os.getenv("CRAG_MOCK_API_URL", "http://localhost:8000")
-
+from tqdm import tqdm
 
 #### CONFIG PARAMETERS ---
 
@@ -49,14 +24,14 @@ MAX_CONTEXT_SENTENCE_LENGTH = 1000
 MAX_CONTEXT_REFERENCES_LENGTH = 4000
 
 # Batch size you wish the evaluators will use to call the `batch_generate_answer` function
-AICROWD_SUBMISSION_BATCH_SIZE = 8 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
+AICROWD_SUBMISSION_BATCH_SIZE = 1 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
 
 # VLLM Parameters 
-VLLM_TENSOR_PARALLEL_SIZE = 4 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
+VLLM_TENSOR_PARALLEL_SIZE = 1 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
 VLLM_GPU_MEMORY_UTILIZATION = 0.85 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
 
 # Sentence Transformer Parameters
-SENTENTENCE_TRANSFORMER_BATCH_SIZE = 128 # TUNE THIS VARIABLE depending on the size of your embedding model and GPU mem available
+SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the size of your embedding model and GPU mem available
 
 #### CONFIG PARAMETERS END---
 
@@ -115,7 +90,7 @@ class ChunkExtractor:
         ray_response_refs = [
             self._extract_chunks.remote(
                 self,
-                interaction_id=batch_interaction_ids[idx],
+                interaction_id=batch_interaction_ids[idx], # type: ignore
                 html_source=html_text["page_result"]
             )
             for idx, search_results in enumerate(batch_search_results)
@@ -160,49 +135,45 @@ class ChunkExtractor:
 
         return chunks, chunk_interaction_ids
 
-class RAGModel:
+class NewRAGModel:
     """
     An example RAGModel for the KDDCup 2024 Meta CRAG Challenge
     which includes all the key components of a RAG lifecycle.
     """
-    def __init__(self):
-        self.initialize_models()
+    def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
+        self.initialize_models(llm_name, is_server, vllm_server)
         self.chunk_extractor = ChunkExtractor()
 
-    def initialize_models(self):
-        # Initialize Meta Llama 3 - 8B Instruct Model
-        self.model_name = "models/meta-llama/Meta-Llama-3-8B-Instruct"
+    def initialize_models(self, llm_name, is_server, vllm_server):
+        self.llm_name = llm_name
+        self.is_server = is_server
+        self.vllm_server = vllm_server
 
-        if not os.path.exists(self.model_name):
-            raise Exception(
-                f"""
-            The evaluators expect the model weights to be checked into the repository,
-            but we could not find the model weights at {self.model_name}
-            
-            Please follow the instructions in the docs below to download and check in the model weights.
-            
-            https://gitlab.aicrowd.com/aicrowd/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/meta-comphrehensive-rag-benchmark-starter-kit/-/blob/master/docs/dataset.md
-            """
+        if self.is_server:
+            # initialize the model with vllm server
+            openai_api_key = "EMPTY"
+            openai_api_base = self.vllm_server
+            self.llm_client = OpenAI(
+                api_key=openai_api_key,
+                base_url=openai_api_base,
             )
-
-        # Initialize the model with vllm
-        self.llm = vllm.LLM(
-            self.model_name,
-            worker_use_ray=True,
-            tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE, 
-            gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION, 
-            trust_remote_code=True,
-            dtype="half", # note: bfloat16 is not supported on nvidia-T4 GPUs
-            enforce_eager=True
-        )
-        self.tokenizer = self.llm.get_tokenizer()
+        else:
+            # initialize the model with vllm offline inference
+            self.llm = vllm.LLM(
+                model=self.llm_name,
+                worker_use_ray=True,
+                tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE,
+                gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION,
+                trust_remote_code=True,
+                dtype="half",  # note: bfloat16 is not supported on nvidia-T4 GPUs
+                enforce_eager=True
+            )
+            self.tokenizer = self.llm.get_tokenizer()
 
         # Load a sentence transformer model optimized for sentence embeddings, using CUDA if available.
         self.sentence_model = SentenceTransformer(
-            "models/sentence-transformers/all-MiniLM-L6-v2",
-            device=torch.device(
-                "cuda" if torch.cuda.is_available() else "cpu"
-            ),
+            "all-MiniLM-L6-v2",
+            device=str(torch.device("cuda" if torch.cuda.is_available() else "cpu")),
         )
 
     def calculate_embeddings(self, sentences):
@@ -316,30 +287,35 @@ class RAGModel:
         formatted_prompts = self.format_prompts(queries, query_times, batch_retrieval_results)
 
         # Generate responses via vllm
-        responses = self.llm.generate(
-            formatted_prompts,
-            vllm.SamplingParams(
+        # note that here self.batch_size = 1
+        if self.is_server:
+            response = self.llm_client.chat.completions.create(
+                model=self.llm_name,
+                messages=formatted_prompts[0],
                 n=1,  # Number of output sequences to return for each prompt.
                 top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
-                temperature=0.1,  # Randomness of the sampling
-                skip_special_tokens=True,  # Whether to skip special tokens in the output.
+                temperature=0.1,  # randomness of the sampling
+                # skip_special_tokens=True,  # Whether to skip special tokens in the output.
                 max_tokens=50,  # Maximum number of tokens to generate per output sequence.
-                
-                # Note: We are using 50 max new tokens instead of 75,
-                # because the 75 max token limit for the competition is checked using the Llama2 tokenizer.
-                # Llama3 instead uses a different tokenizer with a larger vocabulary
-                # This allows the Llama3 tokenizer to represent the same content more efficiently, 
-                # while using fewer tokens.
-            ),
-            use_tqdm=False # you might consider setting this to True during local development
-        )
+            )
+            answers = [response.choices[0].message.content]
+        else:
+            responses = self.llm.generate(
+                formatted_prompts,
+                vllm.SamplingParams(
+                    n=1,  # Number of output sequences to return for each prompt.
+                    top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
+                    temperature=0.1,  # randomness of the sampling
+                    skip_special_tokens=True,  # Whether to skip special tokens in the output.
+                    max_tokens=50,  # Maximum number of tokens to generate per output sequence.
+                ),
+                use_tqdm=False
+            )
+            answers = []
+            for response in responses:
+                answers.append(response.outputs[0].text)
 
-        # Aggregate answers into List[str]
-        answers = []
-        for response in responses:
-            answers.append(response.outputs[0].text)
-        
-        return answers
+        return answers # type: ignore
 
     def format_prompts(self, queries, query_times, batch_retrieval_results=[]):
         """
@@ -374,16 +350,26 @@ class RAGModel:
             user_message += f"Using only the references listed above, answer the following question: \n"
             user_message += f"Current Time: {query_time}\n"
             user_message += f"Question: {query}\n"
-            
-            formatted_prompts.append(
-                self.tokenizer.apply_chat_template(
+
+            if self.is_server:
+                # there is no need to wrap the messages into chat when using the server
+                # because we use the chat API: chat.completions.create
+                formatted_prompts.append(
                     [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message},
-                    ],
-                    tokenize=False,
-                    add_generation_prompt=True,
+                    ]
                 )
-            )
+            else:
+                formatted_prompts.append(
+                    self.tokenizer.apply_chat_template(
+                        [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_message},
+                        ],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                )
 
         return formatted_prompts

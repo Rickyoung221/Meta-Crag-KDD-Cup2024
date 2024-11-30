@@ -44,7 +44,7 @@ class InstructModel:
             # initialize the model with vllm offline inference
             self.llm = vllm.LLM(
                 model=self.llm_name,
-                worker_use_ray=True,
+                worker_use_ray=False,
                 tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE,
                 gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION,
                 trust_remote_code=True,

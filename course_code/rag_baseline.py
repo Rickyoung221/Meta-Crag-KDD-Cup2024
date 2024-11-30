@@ -37,7 +37,7 @@ SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the si
 
 class ChunkExtractor:
 
-    @ray.remote
+    # @ray.remote
     def _extract_chunks(self, interaction_id, html_source):
         """
         Extracts and returns chunks from given HTML source.
@@ -86,24 +86,33 @@ class ChunkExtractor:
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing an array of chunks and an array of corresponding interaction IDs.
         """
-        # Setup parallel chunk extraction using ray remote
-        ray_response_refs = [
-            self._extract_chunks.remote(
-                self,
-                interaction_id=batch_interaction_ids[idx],
-                html_source=html_text["page_result"]
-            )
-            for idx, search_results in enumerate(batch_search_results)
-            for html_text in search_results
-        ]
+        # # Setup parallel chunk extraction using ray remote
+        # ray_response_refs = [
+        #     self._extract_chunks.remote(
+        #         self,
+        #         interaction_id=batch_interaction_ids[idx],
+        #         html_source=html_text["page_result"]
+        #     )
+        #     for idx, search_results in enumerate(batch_search_results)
+        #     for html_text in search_results
+        # ]
 
         # Wait until all sentence extractions are complete
         # and collect chunks for every interaction_id separately
         chunk_dictionary = defaultdict(list)
 
-        for response_ref in ray_response_refs:
-            interaction_id, _chunks = ray.get(response_ref)  # Blocking call until parallel execution is complete
-            chunk_dictionary[interaction_id].extend(_chunks)
+        # for response_ref in ray_response_refs:
+        #     interaction_id, _chunks = ray.get(response_ref)  # Blocking call until parallel execution is complete
+        #     chunk_dictionary[interaction_id].extend(_chunks)
+
+        # Process each HTML source sequentially
+        for idx, search_results in enumerate(batch_search_results):
+            for html_text in search_results:
+                interaction_id, _chunks = self._extract_chunks(
+                    interaction_id=batch_interaction_ids[idx],
+                    html_source=html_text["page_result"]
+                )
+                chunk_dictionary[interaction_id].extend(_chunks)
 
         # Flatten chunks and keep a map of corresponding interaction_ids
         chunks, chunk_interaction_ids = self._flatten_chunks(chunk_dictionary)
@@ -159,16 +168,19 @@ class RAGModel:
             )
         else:
             # initialize the model with vllm offline inference
+            print('loading LLM...')
             self.llm = vllm.LLM(
                 model=self.llm_name,
-                worker_use_ray=True,
+                worker_use_ray=False,
                 tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE,
                 gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION,
                 trust_remote_code=True,
                 dtype="half",  # note: bfloat16 is not supported on nvidia-T4 GPUs
                 enforce_eager=True
             )
+
             self.tokenizer = self.llm.get_tokenizer()
+            print(f"LLM loaded!")
 
         # Load a sentence transformer model optimized for sentence embeddings, using CUDA if available.
         self.sentence_model = SentenceTransformer(
