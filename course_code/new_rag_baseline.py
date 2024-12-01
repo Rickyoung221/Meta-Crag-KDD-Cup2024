@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 #### CONFIG PARAMETERS ---
 
+NUM_CHUNK_PER_SENTENCE = 20
 # Define the number of context sentences to consider for generating an answer.
 NUM_CONTEXT_SENTENCES = 20
 # Set the maximum length for each context sentence (in characters).
@@ -156,7 +157,7 @@ class NewRAGModel:
     """
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
-        self.chunk_extractor = ChunkExtractor(sentence_group_size=3)
+        self.chunk_extractor = ChunkExtractor(sentence_group_size=NUM_CHUNK_PER_SENTENCE)
         self.chunk_len_limit_count = 0
 
     def initialize_models(self, llm_name, is_server, vllm_server):
