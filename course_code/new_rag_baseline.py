@@ -149,7 +149,7 @@ class ChunkExtractor:
 
         return chunks, chunk_interaction_ids
 
-class RAGModel:
+class NewRAGModel:
     """
     An example RAGModel for the KDDCup 2024 Meta CRAG Challenge
     which includes all the key components of a RAG lifecycle.
