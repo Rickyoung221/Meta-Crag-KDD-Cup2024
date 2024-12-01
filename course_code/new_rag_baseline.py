@@ -66,15 +66,15 @@ class ChunkExtractor:
         _, offsets = text_to_sentences_and_offsets(text)
 
         # Initialize a list to store sentences
-        sentences = []
+        chunks = []
 
         # Iterate through the list of offsets and extract sentences
         for start, end in offsets:
             # Extract the sentence and limit its length
             sentence = text[start:end][:MAX_CONTEXT_SENTENCE_LENGTH]
-            sentences.append(sentence)
+            chunks.append(sentence)
 
-        chunks = self._group_sentences(sentences) if self.sentence_group_size else sentences
+        # chunks = self._group_sentences(chunks) if self.sentence_group_size else sentences
 
         return interaction_id, chunks
 
