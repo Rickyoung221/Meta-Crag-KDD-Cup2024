@@ -1,4 +1,5 @@
 from collections import defaultdict
+import json
 from typing import Any, Dict, List
 
 import numpy as np
@@ -95,7 +96,7 @@ class ChunkExtractor:
             grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
         return grouped_chunks
 
-    def extract_chunks(self, batch_interaction_ids, batch_search_results):
+    def extract_chunks(self, queries, batch_interaction_ids, batch_search_results):
         """
         Extracts chunks from given batch search results using parallel processing with Ray.
 
@@ -111,14 +112,24 @@ class ChunkExtractor:
         chunk_dictionary = defaultdict(list)
 
         # Process each HTML source sequentially
+        chunk_len_dist = {}
         for idx, search_results in enumerate(batch_search_results):
+            query = queries[idx]
             for html_text in search_results:
                 interaction_id, _chunks = self._extract_chunks(
                     interaction_id=batch_interaction_ids[idx],
                     html_source=html_text["page_result"]
                 )
+                length = len(_chunks)
+                if length in chunk_len_dist:
+                    chunk_len_dist[length] += 1
+                else:
+                    chunk_len_dist[length] = 1
                 chunk_dictionary[interaction_id].extend(_chunks)
-
+        print(chunk_len_dist)
+        with open("chunk_len_distribution.json", "w") as f:
+            json.dump(chunk_len_dist, f)
+        raise Exception(f'chuck length distribution: {chunk_len_dist}')
         # Flatten chunks and keep a map of corresponding interaction_ids
         chunks, chunk_interaction_ids = self._flatten_chunks(chunk_dictionary)
 
@@ -267,7 +278,7 @@ class NewRAGModel:
 
         # Chunk all search results using ChunkExtractor
         chunks, chunk_interaction_ids = self.chunk_extractor.extract_chunks(
-            batch_interaction_ids, batch_search_results
+            queries, batch_interaction_ids, batch_search_results
         )
 
         # Calculate all chunk embeddings
@@ -298,11 +309,11 @@ class NewRAGModel:
                 (-cosine_scores).argsort()[:NUM_CONTEXT_SENTENCES]
             ]
             
-            # You might also choose to skip the steps above and 
+            # You might also choose to skip the steps above and
             # use a vectorDB directly.
             batch_retrieval_results.append(retrieval_results)
             
-        # Prepare formatted prompts from the LLM        
+        # Prepare formatted prompts from the LLM
         formatted_prompts = self.format_prompts(queries, query_times, batch_retrieval_results)
 
         # Generate responses via vllm
