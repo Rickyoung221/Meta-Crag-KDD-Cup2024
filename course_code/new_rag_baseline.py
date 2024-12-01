@@ -74,7 +74,7 @@ class ChunkExtractor:
             sentence = text[start:end][:MAX_CONTEXT_SENTENCE_LENGTH]
             chunks.append(sentence)
 
-        # chunks = self._group_sentences(chunks) if self.sentence_group_size else sentences
+        # chunks = self._group_sentences(chunks) if self.sentence_group_size else chunks
 
         return interaction_id, chunks
 
@@ -344,7 +344,7 @@ class NewRAGModel:
                     skip_special_tokens=True,  # Whether to skip special tokens in the output.
                     max_tokens=50,  # Maximum number of tokens to generate per output sequence.
                 ),
-                use_tqdm=False
+                use_tqdm=True
             )
             answers = []
             for response in responses:
