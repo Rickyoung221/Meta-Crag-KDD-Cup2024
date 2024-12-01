@@ -74,7 +74,7 @@ class ChunkExtractor:
             sentence = text[start:end][:MAX_CONTEXT_SENTENCE_LENGTH]
             chunks.append(sentence)
 
-        # chunks = self._group_sentences(chunks) if self.sentence_group_size else chunks
+        chunks = self._group_sentences(chunks) if self.sentence_group_size else chunks
 
         return interaction_id, chunks
 
@@ -96,7 +96,7 @@ class ChunkExtractor:
             grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
         return grouped_chunks
 
-    def extract_chunks(self, queries, batch_interaction_ids, batch_search_results):
+    def extract_chunks(self, batch_interaction_ids, batch_search_results):
         """
         Extracts chunks from given batch search results using parallel processing with Ray.
 
@@ -112,24 +112,13 @@ class ChunkExtractor:
         chunk_dictionary = defaultdict(list)
 
         # Process each HTML source sequentially
-        chunk_len_dist = {}
         for idx, search_results in enumerate(batch_search_results):
-            query = queries[idx]
             for html_text in search_results:
                 interaction_id, _chunks = self._extract_chunks(
                     interaction_id=batch_interaction_ids[idx],
                     html_source=html_text["page_result"]
                 )
-                length = len(_chunks)
-                if length in chunk_len_dist:
-                    chunk_len_dist[length] += 1
-                else:
-                    chunk_len_dist[length] = 1
                 chunk_dictionary[interaction_id].extend(_chunks)
-        print(chunk_len_dist)
-        with open("chunk_len_distribution.json", "w") as f:
-            json.dump(chunk_len_dist, f)
-        raise Exception(f'chuck length distribution: {chunk_len_dist}')
         # Flatten chunks and keep a map of corresponding interaction_ids
         chunks, chunk_interaction_ids = self._flatten_chunks(chunk_dictionary)
 
@@ -207,6 +196,24 @@ class NewRAGModel:
             ),
         )
 
+    def expand_queries(self, queries):
+        prompts = []
+        for query in queries:
+            prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects.")
+        expanded_quries = self.llm.generate(
+            prompts,
+            vllm.SamplingParams(
+                n=1,  # Number of output sequences to return for each prompt.
+                top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
+                temperature=0.3,  # randomness of the sampling
+                skip_special_tokens=True,  # Whether to skip special tokens in the output.
+                max_tokens=50,  # Maximum number of tokens to generate per output sequence.
+            ),
+            use_tqdm=True
+        )
+
+        return expanded_quries
+
     def calculate_embeddings(self, sentences):
         """
         Compute normalized embeddings for a list of sentences using a sentence encoding model.
@@ -273,13 +280,13 @@ class NewRAGModel:
           Failing to adhere to this time constraint **will** result in a timeout during evaluation.
         """
         batch_interaction_ids = batch["interaction_id"]
-        queries = batch["query"]
+        queries = self.expand_queries(batch["query"])
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
         # Chunk all search results using ChunkExtractor
         chunks, chunk_interaction_ids = self.chunk_extractor.extract_chunks(
-            queries, batch_interaction_ids, batch_search_results
+            batch_interaction_ids, batch_search_results
         )
 
         for item in chunks:
