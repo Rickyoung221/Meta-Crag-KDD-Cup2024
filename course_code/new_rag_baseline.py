@@ -1,9 +1,7 @@
-import os
 from collections import defaultdict
 from typing import Any, Dict, List
 
 import numpy as np
-import ray
 import torch
 import vllm
 from blingfire import text_to_sentences_and_offsets
@@ -37,7 +35,9 @@ SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the si
 
 class ChunkExtractor:
 
-    @ray.remote
+    def __init__(self, sentence_group_size):
+        self.sentence_group_size = sentence_group_size
+
     def _extract_chunks(self, interaction_id, html_source):
         """
         Extracts and returns chunks from given HTML source.
@@ -65,15 +65,35 @@ class ChunkExtractor:
         _, offsets = text_to_sentences_and_offsets(text)
 
         # Initialize a list to store sentences
-        chunks = []
+        sentences = []
 
         # Iterate through the list of offsets and extract sentences
         for start, end in offsets:
             # Extract the sentence and limit its length
             sentence = text[start:end][:MAX_CONTEXT_SENTENCE_LENGTH]
-            chunks.append(sentence)
+            sentences.append(sentence)
+
+        chunks = self._group_sentences(sentences) if self.sentence_group_size else sentences
 
         return interaction_id, chunks
+
+    def _group_sentences(self, sentences):
+        """
+        Groups sentences into chunks of a fixed size.
+
+        Parameters:
+            sentences (List[str]): List of sentences.
+            group_size (int): Number of sentences per group.
+
+        Returns:
+            List[str]: List of grouped sentences as chunks.
+        """
+        group_size = self.sentence_group_size
+        grouped_chunks = []
+        for i in range(0, len(sentences), group_size):
+            grouped_chunk = " ".join(sentences[i:i + group_size])
+            grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
+        return grouped_chunks
 
     def extract_chunks(self, batch_interaction_ids, batch_search_results):
         """
@@ -86,24 +106,18 @@ class ChunkExtractor:
         Returns:
             Tuple[np.ndarray, np.ndarray]: A tuple containing an array of chunks and an array of corresponding interaction IDs.
         """
-        # Setup parallel chunk extraction using ray remote
-        ray_response_refs = [
-            self._extract_chunks.remote(
-                self,
-                interaction_id=batch_interaction_ids[idx], # type: ignore
-                html_source=html_text["page_result"]
-            )
-            for idx, search_results in enumerate(batch_search_results)
-            for html_text in search_results
-        ]
-
         # Wait until all sentence extractions are complete
         # and collect chunks for every interaction_id separately
         chunk_dictionary = defaultdict(list)
 
-        for response_ref in ray_response_refs:
-            interaction_id, _chunks = ray.get(response_ref)  # Blocking call until parallel execution is complete
-            chunk_dictionary[interaction_id].extend(_chunks)
+        # Process each HTML source sequentially
+        for idx, search_results in enumerate(batch_search_results):
+            for html_text in search_results:
+                interaction_id, _chunks = self._extract_chunks(
+                    interaction_id=batch_interaction_ids[idx],
+                    html_source=html_text["page_result"]
+                )
+                chunk_dictionary[interaction_id].extend(_chunks)
 
         # Flatten chunks and keep a map of corresponding interaction_ids
         chunks, chunk_interaction_ids = self._flatten_chunks(chunk_dictionary)
@@ -135,14 +149,14 @@ class ChunkExtractor:
 
         return chunks, chunk_interaction_ids
 
-class NewRAGModel:
+class RAGModel:
     """
     An example RAGModel for the KDDCup 2024 Meta CRAG Challenge
     which includes all the key components of a RAG lifecycle.
     """
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
-        self.chunk_extractor = ChunkExtractor()
+        self.chunk_extractor = ChunkExtractor(sentence_group_size=3)
 
     def initialize_models(self, llm_name, is_server, vllm_server):
         self.llm_name = llm_name
@@ -159,21 +173,26 @@ class NewRAGModel:
             )
         else:
             # initialize the model with vllm offline inference
+            print('loading LLM...')
             self.llm = vllm.LLM(
                 model=self.llm_name,
-                worker_use_ray=True,
+                worker_use_ray=False,
                 tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE,
                 gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION,
                 trust_remote_code=True,
                 dtype="half",  # note: bfloat16 is not supported on nvidia-T4 GPUs
                 enforce_eager=True
             )
+
             self.tokenizer = self.llm.get_tokenizer()
+            print(f"LLM loaded!")
 
         # Load a sentence transformer model optimized for sentence embeddings, using CUDA if available.
         self.sentence_model = SentenceTransformer(
             "all-MiniLM-L6-v2",
-            device=str(torch.device("cuda" if torch.cuda.is_available() else "cpu")),
+            device=torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu"
+            ),
         )
 
     def calculate_embeddings(self, sentences):
@@ -315,7 +334,7 @@ class NewRAGModel:
             for response in responses:
                 answers.append(response.outputs[0].text)
 
-        return answers # type: ignore
+        return answers
 
     def format_prompts(self, queries, query_times, batch_retrieval_results=[]):
         """
