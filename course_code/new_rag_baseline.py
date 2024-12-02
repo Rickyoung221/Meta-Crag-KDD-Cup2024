@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 #### CONFIG PARAMETERS ---
 
-NUM_CHUNK_PER_SENTENCE = 20
+NUM_CHUNK_PER_SENTENCE = 1
 # Define the number of context sentences to consider for generating an answer.
 NUM_CONTEXT_SENTENCES = 20
 # Set the maximum length for each context sentence (in characters).
