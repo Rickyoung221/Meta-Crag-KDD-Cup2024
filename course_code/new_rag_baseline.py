@@ -224,7 +224,8 @@ class NewRAGModel:
             use_tqdm=True
         )
 
-        expanded_queries = [output.text.strip() for result in response.outputs for output in result]
+        expanded_queries = [output.text.strip() for res in response for output in res.outputs]
+        # expanded_queries = [output.text.strip() for result in response.outputs for output in result]
 
         return expanded_queries
 
