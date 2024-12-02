@@ -282,9 +282,15 @@ class NewRAGModel:
         """
         batch_interaction_ids = batch["interaction_id"]
         queries = batch['query']
-        # queries = self.expand_queries(batch["query"])
+        queries2 = self.expand_queries(batch["query"])
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
+
+        print(queries)
+        print()
+        print(queries2)
+
+        raise Exception('yes!')
 
         print(f'there are {len(queries)} queries and {len(batch_search_results)} total search.')
         print(f'\tThe search results have length: {list(map(lambda x: len(x), batch_search_results))}')
