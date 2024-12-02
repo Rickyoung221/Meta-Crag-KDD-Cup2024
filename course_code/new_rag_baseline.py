@@ -281,7 +281,8 @@ class NewRAGModel:
           Failing to adhere to this time constraint **will** result in a timeout during evaluation.
         """
         batch_interaction_ids = batch["interaction_id"]
-        queries = self.expand_queries(batch["query"])
+        queries = batch['query']
+        # queries = self.expand_queries(batch["query"])
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
