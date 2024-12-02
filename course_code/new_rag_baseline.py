@@ -285,6 +285,9 @@ class NewRAGModel:
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
+        print(f'there are {len(queries)} queries and {len(batch_search_results)} total search.')
+        print(f'\tThe search results have length: {map(lambda x: len(x)), batch_search_results}')
+
         # Chunk all search results using ChunkExtractor
         chunks, chunk_interaction_ids = self.chunk_extractor.extract_chunks(
             batch_interaction_ids, batch_search_results
