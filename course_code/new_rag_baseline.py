@@ -169,7 +169,6 @@ class NewRAGModel:
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
         self.chunk_extractor = ChunkExtractor()
-        self.chunk_len_limit_count = 0
 
     def initialize_models(self, llm_name, is_server, vllm_server):
         self.llm_name = llm_name
@@ -221,7 +220,7 @@ class NewRAGModel:
                 skip_special_tokens=True,  # Whether to skip special tokens in the output.
                 max_tokens=50,  # Maximum number of tokens to generate per output sequence.
             ),
-            use_tqdm=True
+            use_tqdm=False
         )
 
         expanded_queries = [output.text.strip() for res in response for output in res.outputs]
@@ -313,10 +312,10 @@ class NewRAGModel:
         chunks, chunk_interaction_ids = self.chunk_extractor.extract_chunks(
             batch_interaction_ids, batch_search_results
         )
-
+        chunk_len_limit_count = 0
         for item in chunks:
             if len(item) >= MAX_CONTEXT_SENTENCE_LENGTH-1:
-                self.chunk_len_limit_count += 1
+                chunk_len_limit_count += 1
         print(f'Out of {len(chunks)} chunks, {self.chunk_len_limit_count} reached maximum length.')
         # Calculate all chunk embeddings
         chunk_embeddings = self.calculate_embeddings(chunks)
