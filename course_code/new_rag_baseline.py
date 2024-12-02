@@ -294,8 +294,8 @@ class NewRAGModel:
           Failing to adhere to this time constraint **will** result in a timeout during evaluation.
         """
         batch_interaction_ids = batch["interaction_id"]
-        queries = batch['query']
-        queries2 = self.expand_queries(batch["query"])
+        # queries = batch['query']
+        queries = self.expand_queries(batch["query"])
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
@@ -305,7 +305,7 @@ class NewRAGModel:
 
         # raise Exception('yes!')
 
-        print(f'there are {len(queries)} queries and {len(batch_search_results)} total search.')
+        print(f'\nthere are {len(queries)} queries and {len(batch_search_results)} total search.')
         print(f'\tThe search results have length: {list(map(lambda x: len(x), batch_search_results))}')
 
         # Chunk all search results using ChunkExtractor
@@ -316,7 +316,7 @@ class NewRAGModel:
         for item in chunks:
             if len(item) >= MAX_CONTEXT_SENTENCE_LENGTH-1:
                 chunk_len_limit_count += 1
-        print(f'Out of {len(chunks)} chunks, {self.chunk_len_limit_count} reached maximum length.')
+        print(f'\nOut of {len(chunks)} chunks, {self.chunk_len_limit_count} reached maximum length.')
         # Calculate all chunk embeddings
         chunk_embeddings = self.calculate_embeddings(chunks)
 
