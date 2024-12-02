@@ -37,8 +37,8 @@ SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the si
 
 class ChunkExtractor:
 
-    def __init__(self, sentence_group_size):
-        self.sentence_group_size = sentence_group_size
+    def __init__(self):
+        self.sentence_group_size = NUM_CHUNK_PER_SENTENCE
 
     def _extract_chunks(self, interaction_id, html_source):
         """
@@ -92,9 +92,20 @@ class ChunkExtractor:
         """
         group_size = self.sentence_group_size
         grouped_chunks = []
-        for i in range(0, len(sentences), group_size):
-            grouped_chunk = " ".join(sentences[i:i + group_size])
-            grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
+        i = 0
+        new_chunk = ""
+        # Preserve info: only group when the new chunk has length within limit
+        while i < len(sentences):
+            cur_sen = sentences[i]
+            if len(new_chunk + ' ' + cur_sen) < MAX_CONTEXT_SENTENCE_LENGTH:
+                new_chunk += ' ' + cur_sen
+                i += 1
+            else:
+                grouped_chunks.append(new_chunk)
+                new_chunk = ""
+        # for i in range(0, len(sentences), group_size):
+        #     grouped_chunk = " ".join(sentences[i:i + group_size])
+        #     grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
         return grouped_chunks
 
     def extract_chunks(self, batch_interaction_ids, batch_search_results):
@@ -157,7 +168,7 @@ class NewRAGModel:
     """
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
-        self.chunk_extractor = ChunkExtractor(sentence_group_size=NUM_CHUNK_PER_SENTENCE)
+        self.chunk_extractor = ChunkExtractor()
         self.chunk_len_limit_count = 0
 
     def initialize_models(self, llm_name, is_server, vllm_server):
@@ -201,19 +212,21 @@ class NewRAGModel:
         prompts = []
         for query in queries:
             prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects.")
-        expanded_quries = self.llm.generate(
+        response = self.llm.generate(
             prompts,
             vllm.SamplingParams(
                 n=1,  # Number of output sequences to return for each prompt.
                 top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
-                temperature=0.3,  # randomness of the sampling
+                temperature=0.1,  # randomness of the sampling
                 skip_special_tokens=True,  # Whether to skip special tokens in the output.
                 max_tokens=50,  # Maximum number of tokens to generate per output sequence.
             ),
             use_tqdm=True
         )
 
-        return expanded_quries
+        expanded_queries = [output.text.strip() for result in response.outputs for output in result]
+
+        return expanded_queries
 
     def calculate_embeddings(self, sentences):
         """
@@ -286,11 +299,11 @@ class NewRAGModel:
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
-        print(queries)
-        print()
-        print(queries2)
+        # print(queries)
+        # print()
+        # print(queries2)
 
-        raise Exception('yes!')
+        # raise Exception('yes!')
 
         print(f'there are {len(queries)} queries and {len(batch_search_results)} total search.')
         print(f'\tThe search results have length: {list(map(lambda x: len(x), batch_search_results))}')
@@ -362,7 +375,7 @@ class NewRAGModel:
                     skip_special_tokens=True,  # Whether to skip special tokens in the output.
                     max_tokens=50,  # Maximum number of tokens to generate per output sequence.
                 ),
-                use_tqdm=True
+                use_tqdm=False
             )
             answers = []
             for response in responses:
