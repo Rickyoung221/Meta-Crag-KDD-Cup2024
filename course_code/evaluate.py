@@ -80,7 +80,8 @@ if __name__ == "__main__":
                         choices=["vanilla_baseline",
                                  "rag_baseline",
                                  # add your model here
-                                 "new_rag_baseline"
+                                 "new_rag_baseline",
+                                 "task_2_rag_baseline",
                                  ],
                         )
 

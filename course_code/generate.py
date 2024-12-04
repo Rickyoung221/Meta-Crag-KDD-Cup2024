@@ -92,7 +92,8 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, default="vanilla_baseline",
                         choices=["vanilla_baseline",
                                  "rag_baseline",
-                                 "new_rag_baseline"
+                                 "new_rag_baseline",
+                                 "task_2_rag_baseline",
                                  # add your model here
                                  ],
                         )
@@ -133,6 +134,10 @@ if __name__ == "__main__":
     elif model_name == "new_rag_baseline":
         # add your model here
         from new_rag_baseline import NewRAGModel
+        model = NewRAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
+    elif model_name == "task_2_rag_baseline":
+        # add your model here
+        from task_2_rag_baseline import NewRAGModel
         model = NewRAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
     else:
         raise ValueError("Model name not recognized.")
