@@ -1,7 +1,7 @@
 from collections import defaultdict
 import json
 from typing import Any, Dict, List
-
+import requests
 import numpy as np
 import torch
 import vllm
@@ -161,7 +161,7 @@ class ChunkExtractor:
 
         return chunks, chunk_interaction_ids
 
-class NewRAGModel:
+class Task2RAGModel:
     """
     An example RAGModel for the KDDCup 2024 Meta CRAG Challenge
     which includes all the key components of a RAG lifecycle.
@@ -383,6 +383,9 @@ class NewRAGModel:
 
         return answers
 
+
+
+    
     def format_prompts(self, queries, query_times, batch_retrieval_results=[]):
         """
         Formats queries, corresponding query_times and retrieval results using the chat_template of the model.
@@ -391,7 +394,7 @@ class NewRAGModel:
         - queries (List[str]): A list of queries to be formatted into prompts.
         - query_times (List[str]): A list of query_time strings corresponding to each query.
         - batch_retrieval_results (List[str])
-        """        
+        """
         system_prompt = "You are provided with a question and various references. Your task is to answer the question succinctly, using the fewest words possible. If the references do not contain the necessary information to answer the question, respond with 'I don't know'. There is no need to explain the reasoning behind your answers."
         formatted_prompts = []
 
@@ -439,3 +442,95 @@ class NewRAGModel:
                 )
 
         return formatted_prompts
+
+
+    '''
+    TASK #2: KNOWLEDGE GRAPH AND WEB AUGMENTATION
+    Taks #2 provides mock APIs to access information from underlying mock 
+    Knowledge Graphs (KGs). These mock KGs contain structured data relevant 
+    to the questions; however, the answers to the questions may or may not 
+    exist within the mock KGs. The mock APIs accept input parameters, 
+    often parsed from the question, and provide structured data from the mock 
+    KGs to support answer generation.
+    
+    '''
+class MockAPIClient:
+    def mock_api_call(self, query: str) -> Dict:
+        """
+        Simulates an API call to fetch data from a mock API.
+
+        Args:
+            query (str): The query for which to fetch data.
+
+        Returns:
+            Dict: The response from the mock API.
+        """
+        # Replace with the actual URL of your mock API
+        api_url = f"http://127.0.0.1:8000/data?query={query}"
+        try:
+            response = requests.get(api_url, timeout=10)  # Set a timeout for the request
+            response.raise_for_status()  # Raise an error for bad status codes
+            return response.json()  # Ensure the response is JSON-parsable
+        except requests.exceptions.RequestException as e:
+            print(f"API call failed: {e}")
+            return {"data": []}  # Return an empty structure on failure
+        except ValueError:
+            print("Failed to decode JSON response.")
+            return {"data": []}
+
+
+    def fetch_knowledge_graph_data(self, query: str) -> List[Dict]:
+        """
+        Fetches structured data from a knowledge graph using a mock API.
+        
+        Args:
+            query (str): The query for which to fetch data.
+        
+        Returns:
+            List[Dict]: A list of structured data relevant to the query.
+        """
+        # Simulated API call
+        print("Calling mock_api_call...")
+        response = self.mock_api_call(query)
+        return response.get("data", [])
+    
+    def combine_retrieval_results(web_chunks, knowledge_data, query_embedding):
+        """
+        Combines results from web retrieval and knowledge graph.
+
+        Args:
+            web_chunks (List[str]): Retrieved web content.
+            knowledge_data (List[Dict]): Retrieved structured data.
+            query_embedding (np.ndarray): Embedding of the query.
+
+        Returns:
+            List[str]: Combined and ranked content for the query.
+        """
+        # Compute embeddings for knowledge data
+        knowledge_chunks = [item['description'] for item in knowledge_data]
+        knowledge_embeddings = self.calculate_embeddings(knowledge_chunks)
+        
+        # Compute scores
+        web_scores = np.dot(web_chunks, query_embedding)
+        knowledge_scores = np.dot(knowledge_embeddings, query_embedding)
+        
+        # Combine results with weightsh
+        combined_scores = np.concatenate([web_scores, knowledge_scores])
+        combined_chunks = web_chunks + knowledge_chunks
+        ranked_results = [chunk for _, chunk in sorted(zip(combined_scores, combined_chunks), reverse=True)]
+        return ranked_results[:NUM_CONTEXT_SENTENCES]
+    
+def test_mock_api():
+    client = MockAPIClient()
+    query = "example query"
+    response = client.mock_api_call(query)
+    
+    if response and "data" in response:
+        print("API call successful!")
+        print("Response data:", response["data"])
+    else:
+        print("API call failed or returned no data.")
+
+# 运行测试
+if __name__ == "__main__":
+    test_mock_api()
