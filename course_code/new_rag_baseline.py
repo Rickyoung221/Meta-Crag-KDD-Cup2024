@@ -169,6 +169,7 @@ class NewRAGModel:
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
         self.chunk_extractor = ChunkExtractor()
+        self.example_count = 0
 
     def initialize_models(self, llm_name, is_server, vllm_server):
         self.llm_name = llm_name
@@ -224,8 +225,10 @@ class NewRAGModel:
         )
 
         expanded_queries = [output.text.strip() for res in response for output in res.outputs]
-        # expanded_queries = [output.text.strip() for result in response.outputs for output in result]
-
+        if self.example_count < 3:
+            for i in range(len(queries)):
+                print(f'Original query:\n\t{queries[i]}')
+                print(f'Expanded query:\n\t{expand_queries[i]}\n')
         return expanded_queries
 
     def calculate_embeddings(self, sentences):
@@ -294,8 +297,8 @@ class NewRAGModel:
           Failing to adhere to this time constraint **will** result in a timeout during evaluation.
         """
         batch_interaction_ids = batch["interaction_id"]
-        # queries = batch['query']
-        queries = self.expand_queries(batch["query"])
+        original_queries = batch['query']
+        queries = self.expand_queries(original_queries)
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
