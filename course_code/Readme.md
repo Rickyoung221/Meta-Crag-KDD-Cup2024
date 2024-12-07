@@ -1,8 +1,6 @@
-Here's the updated **README.md** file including **Task 3**:
 
----
 
-# Meta KDD Cup 2024: Comprehensive RAG Benchmark
+# CS245 Final Project 
 
 This repository contains our implementation for the Meta KDD Cup 2024 CRAG Benchmark tasks. The project focuses on a Retrieval-Augmented Generation (RAG) system for accurate, hallucination-free answers across three tasks:
 
@@ -241,5 +239,5 @@ python evaluate.py \
 
 ## Additional Resources
 
-- [Reference Github Repo](*https://github.com/USTCAGI/CRAG-in-KDD-Cup2024/tree/master*)
+- [Reference Github Repo](https://github.com/USTCAGI/CRAG-in-KDD-Cup2024/tree/master)
 - [Official Competition Site](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024)
