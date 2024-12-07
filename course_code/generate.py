@@ -7,17 +7,17 @@ import argparse
 from loguru import logger
 from tqdm.auto import tqdm
 
-def load_data_in_batches(dataset_path, batch_size, split=-1):
+def load_data_in_batches(dataset_path: str, batch_size: int, split: int = -1):
     """
     Generator function that reads data from a compressed file and yields batches of data.
     Each batch is a dictionary containing lists of interaction_ids, queries, search results, query times, and answers.
 
     Args:
-    dataset_path (str): Path to the dataset file.
-    batch_size (int): Number of data items in each batch.
+        dataset_path (str): Path to the dataset file.
+        batch_size (int): Number of data items in each batch.
 
     Yields:
-    dict: A batch of data.
+        dict: A batch of data.
     """
 
     def initialize_batch():
@@ -53,16 +53,16 @@ def load_data_in_batches(dataset_path, batch_size, split=-1):
         raise e
 
 
-def generate_predictions(dataset_path, model, split):
+def generate_predictions(dataset_path: str, model, split: int):
     """
     Processes batches of data from a dataset to generate predictions using a model.
 
     Args:
-    dataset_path (str): Path to the dataset.
-    model (object): UserModel that provides `get_batch_size()` and `batch_generate_answer()` interfaces.
+        dataset_path (str): Path to the dataset.
+        model (object): UserModel that provides `get_batch_size()` and `batch_generate_answer()` interfaces.
 
     Returns:
-    tuple: A tuple containing lists of queries, ground truths, and predictions.
+        tuple: A tuple containing lists of queries, ground truths, and predictions.
     """
     queries, ground_truths, predictions = [], [], []
     batch_size = model.get_batch_size()
@@ -82,9 +82,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dataset_path", type=str, default="example_data/dev_data.jsonl.bz2",
-                        choices=["example_data/dev_data.jsonl.bz2", # example data
-                                 "data/crag_task_1_dev_v4_release.jsonl.bz2", # full data
-                                 ])
+                    choices=["example_data/dev_data.jsonl.bz2",  # example data
+                             "data/crag_task_1_dev_v4_release.jsonl.bz2",  # task1 data
+                             "data/crag_task_3_dev_v4.tar.bz2",   # task3 data
+                             ])
     parser.add_argument("--split", type=int, default=-1,
                         help="The split of the dataset to use. This is only relevant for the full data: "
                              "0 for public validation set, 1 for public test set")
@@ -93,19 +94,19 @@ if __name__ == "__main__":
                         choices=["vanilla_baseline",
                                  "rag_baseline",
                                  "new_rag_baseline",
-                                 "task_2_rag_baseline",
-                                 # add your model here
+                                 "task2_rag_baseline",
+                                 "task3_rag_baseline"  # Added Task 3 model
                                  ],
                         )
-
-    parser.add_argument("--llm_name", type=str, default="meta-llama/Llama-3.2-1B-Instruct",
-                        choices=["meta-llama/Llama-3.2-1B-Instruct",
+    
+    parser.add_argument("--llm_name", type=str, default="meta-llama/Llama-3.2-3B-Instruct",
+                        choices=["meta-llama/Llama-3.2-3B-Instruct",
                                  "google/gemma-2-2b-it",
                                  # can add more llm models here
                                  ])
     parser.add_argument("--is_server", action="store_true", default=False,
                         help="Whether we use vLLM deployed on a server or offline inference.")
-    parser.add_argument("--vllm_server", type=str, default="http://localhost:8088/v1",
+    parser.add_argument("--vllm_server", type=str, default="http://127.0.0.1:8088/v1",
                         help="URL of the vLLM server if is_server is True. The port number may vary.")
 
     args = parser.parse_args()
@@ -132,23 +133,29 @@ if __name__ == "__main__":
         from rag_baseline import RAGModel
         model = RAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
     elif model_name == "new_rag_baseline":
-        # add your model here
         from new_rag_baseline import NewRAGModel
         model = NewRAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
-    elif model_name == "task_2_rag_baseline":
-        # add your model here
-        from task_2_rag_baseline import NewRAGModel
-        model = NewRAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
+    elif model_name == "task2_rag_baseline":
+        from task2_rag_baseline import Task2RAGModel
+        model = Task2RAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
+    elif model_name == "task3_rag_baseline":  # Added Task 3 model
+        from task3_rag_baseline import Task3RAGModel
+        model = Task3RAGModel(llm_name=llm_name, is_server=args.is_server, vllm_server=args.vllm_server)
     else:
         raise ValueError("Model name not recognized.")
 
-    # make output directory
+    # Create output directory
     output_directory = os.path.join("..", "output", dataset, model_name, _llm_name)
     os.makedirs(output_directory, exist_ok=True)
 
     # Generate predictions
     queries, ground_truths, predictions = generate_predictions(dataset_path, model, split)
 
-    # save predictions
-    json.dump({"queries": queries, "ground_truths": ground_truths, "predictions": predictions},
-              open(os.path.join(output_directory, "predictions.json"), "w"), indent=4)
+    # Save predictions
+    with open(os.path.join(output_directory, "predictions.json"), "w") as f:
+        json.dump({"queries": queries, "ground_truths": ground_truths, "predictions": predictions},
+                  f, indent=4)
+
+    # Optional: Start debugging session
+    logger.info("Prediction generation completed successfully.")
+    logger.info(f"Predictions saved to {os.path.join(output_directory, 'predictions.json')}")
