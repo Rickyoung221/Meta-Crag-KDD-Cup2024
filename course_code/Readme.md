@@ -1,6 +1,4 @@
-
-
-# CS245 Final Project 
+# CS245 Final Project
 
 This repository contains our implementation for the Meta KDD Cup 2024 CRAG Benchmark tasks. The project focuses on a Retrieval-Augmented Generation (RAG) system for accurate, hallucination-free answers across three tasks:
 
@@ -40,6 +38,10 @@ Summarize retrieved content into concise, accurate answers while avoiding halluc
   | Accuracy           | 12.96%           | 22.92%       | 39.1%            |
   | Exact Accuracy     | 0.37%            | 3.37%        | 4.94%            |
   | Hallucination Rate | 14.01%           | 28.31%       | 45.2%            |
+
+For task 1, switch to branch "both" to see detailed implementation and evaluation result in output folder.
+
+For task 2, switch to branch "task2" to see detailed implementation.
 
 ### Task 2: Knowledge Graph and Web Retrieval
 
