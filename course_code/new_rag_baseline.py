@@ -169,6 +169,7 @@ class NewRAGModel:
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
         self.chunk_extractor = ChunkExtractor()
+        self.example_count = 0
 
     def initialize_models(self, llm_name, is_server, vllm_server):
         self.llm_name = llm_name
@@ -210,22 +211,28 @@ class NewRAGModel:
     def expand_queries(self, queries):
         prompts = []
         for query in queries:
-            prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects.")
-        response = self.llm.generate(
-            prompts,
-            vllm.SamplingParams(
-                n=1,  # Number of output sequences to return for each prompt.
-                top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
-                temperature=0.1,  # randomness of the sampling
-                skip_special_tokens=True,  # Whether to skip special tokens in the output.
-                max_tokens=50,  # Maximum number of tokens to generate per output sequence.
-            ),
-            use_tqdm=False
-        )
+            prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects. Please keep the length of extended question within 70 characters and just give the extended query. Don't say anything else.")
 
-        expanded_queries = [output.text.strip() for res in response for output in res.outputs]
-        # expanded_queries = [output.text.strip() for result in response.outputs for output in result]
-
+        responses = self.llm.generate(
+                prompts,
+                vllm.SamplingParams(
+                    n=1,  # Number of output sequences to return for each prompt.
+                    top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
+                    temperature=0.1,  # randomness of the sampling
+                    skip_special_tokens=True,  # Whether to skip special tokens in the output.
+                    max_tokens=70,  # Maximum number of tokens to generate per output sequence.
+                ),
+                use_tqdm=False
+            )
+        expanded_queries = []
+        for response in responses:
+            expanded_queries.append(response.outputs[0].text)
+        
+        if self.example_count < 3:
+            for i in range(len(queries)):
+                print(f'Original query:\n\t{queries[i]}')
+                print(f'Expanded query:\n\t{expanded_queries[i]}\n')
+                self.example_count += 1
         return expanded_queries
 
     def calculate_embeddings(self, sentences):
@@ -294,8 +301,8 @@ class NewRAGModel:
           Failing to adhere to this time constraint **will** result in a timeout during evaluation.
         """
         batch_interaction_ids = batch["interaction_id"]
-        # queries = batch['query']
-        queries = self.expand_queries(batch["query"])
+        original_queries = batch['query']
+        queries = self.expand_queries(original_queries)
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
@@ -316,7 +323,7 @@ class NewRAGModel:
         for item in chunks:
             if len(item) >= MAX_CONTEXT_SENTENCE_LENGTH-1:
                 chunk_len_limit_count += 1
-        print(f'\nOut of {len(chunks)} chunks, {self.chunk_len_limit_count} reached maximum length.')
+        print(f'\nOut of {len(chunks)} chunks, {chunk_len_limit_count} reached maximum length.')
         # Calculate all chunk embeddings
         chunk_embeddings = self.calculate_embeddings(chunks)
 

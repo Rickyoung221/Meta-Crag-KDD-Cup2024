@@ -13,6 +13,10 @@ from openai import OpenAI
 from tqdm import tqdm
 from collections import defaultdict
 
+#reference: https://github.com/USTCAGI/CRAG-in-KDD-Cup2024/tree/master
+#reference: https://blog.csdn.net/m0_59164520/article/details/143694213
+#dataset: https://huggingface.co/datasets/Rickyoung0221/crag/tree/main
+
 #### CONFIG PARAMETERS ---
 # Configuration parameters for chunking, context sizes, and model inference
 NUM_CHUNK_PER_SENTENCE = 3             # Number of sentences combined into one chunk
@@ -137,7 +141,8 @@ class ChunkExtractor:
         self.sentence_group_size = sentence_group_size
 
     def _extract_chunks(self, interaction_id: str, html_source: str) -> Tuple[str, List[str]]:
-        """Extract text chunks from a single HTML source.
+        """
+        Extract text chunks from a single HTML source.
 
         Steps:
         - Parse HTML with BeautifulSoup to remove tags and get raw text.

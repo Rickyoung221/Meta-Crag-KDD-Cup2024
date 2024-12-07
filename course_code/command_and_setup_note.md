@@ -73,7 +73,7 @@ pip install lxml
 Log in to Hugging Face with your token:
 
 ```bash
-huggingface-cli login --token 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
+huggingface-cli login --token xxxxxxxxxxxxxx
 ```
 
 ### Run the Generate Script

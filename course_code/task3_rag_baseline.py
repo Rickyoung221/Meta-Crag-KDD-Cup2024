@@ -15,6 +15,7 @@ from openai import OpenAI
 from tqdm import tqdm
 from collections import defaultdict
 
+# the code handle 50 pages
 #### CONFIG PARAMETERS ---
 NUM_CHUNK_PER_SENTENCE = 3            # Number of sentences grouped into one chunk
 NUM_CONTEXT_SENTENCES = 20            # Number of top relevant chunks to include as context

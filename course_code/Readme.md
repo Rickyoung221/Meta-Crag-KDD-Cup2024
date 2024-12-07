@@ -1,104 +1,117 @@
-# Project Setup and Usage Guide
+Here's the updated **README.md** file including **Task 3**:
 
-## Project Setup
+---
 
-### 1. Set Up the VM
+# Meta KDD Cup 2024: Comprehensive RAG Benchmark
 
-- Configure and initialize a virtual machine (VM) for the project.
+This repository contains our implementation for the Meta KDD Cup 2024 CRAG Benchmark tasks. The project focuses on a Retrieval-Augmented Generation (RAG) system for accurate, hallucination-free answers across three tasks:
 
-### 2. Add SSH Public Key to VM
+- **Task 1:** Retrieval Summarization
+- **Task 2:** Knowledge Graph and Web Retrieval
+- **Task 3:** Advanced Synthesis and Reasoning
 
-- Add your SSH public key to the VM for secure remote access.
+---
 
-### 3. Connect to the Remote Host from VS Code
+## Project Structure
 
-- Use VS Code’s remote SSH extension to connect to the VM.
+Platform used: Vast AI, A-100.
 
-### 4. Hugging Face Login and Environment Setup
+- **`new_rag_baseline/`**: Codebase for Task 1 with retrieval and summarization improvements.
+- **`task2_rag_baseline/`**: Extension of Task 1, integrating Knowledge Graphs.
+- **`task3_advanced_baseline/`**: Advanced reasoning and synthesis across structured and unstructured data.
+- **`data/`**: Contains datasets for all tasks.
+- **`output/`**: Stores generated predictions and evaluation results.
+- **`docs/`**: Documentation, including dataset details and methodology.
 
-- Log in to your Hugging Face account.
-- Set up the required environment for the project.
+---
 
-------
+## Tasks Overview
 
-## Running the Baseline Code
+### Task 1: Retrieval Summarization
 
-### Start the VLLM Server
+Summarize retrieved content into concise, accurate answers while avoiding hallucinations.
 
-Run the following command to start the VLLM server:
+- **Model Used**: `meta-llama/Llama-3.2-3B-Instruct`.
 
-```bash
-vllm serve meta-llama/Llama-3.2-1B-Instruct \
-    --gpu_memory_utilization=0.95 \
-    --tensor_parallel_size=1 \
-    --dtype="half" \
-    --port=8088 \
-    --enforce_eager
-```
+- Performance Summary
 
-### Offline Inference Example
+  :
 
-Check for the following file in `/var/tmp`:
+  | Metric             | Vanilla Baseline | RAG Baseline | New RAG Baseline |
+  | ------------------ | ---------------- | ------------ | ---------------- |
+  | Accuracy           | 12.96%           | 22.92%       | 39.1%            |
+  | Exact Accuracy     | 0.37%            | 3.37%        | 4.94%            |
+  | Hallucination Rate | 14.01%           | 28.31%       | 45.2%            |
 
-```
-5c67febead924a30c0ad73283fca422fade2ccd58797fe886109a313b4f719c2meta-llama-Llama-3.2-1B-Instruct.lock
-```
+### Task 2: Knowledge Graph and Web Retrieval
 
-If it exists, delete the lock file.
+Enhances Task 1 by incorporating structured data (Knowledge Graphs) using mock APIs for improved accuracy.
 
-Run offline inference with:
+### Task 3: Advanced Synthesis and Reasoning
 
-```bash
-python generate.py \
-    --dataset_path "data/crag_task_1_dev_v4_release.jsonl.bz2" \
-    --split 1 \
-    --model_name "rag_baseline" \
-    --llm_name "meta-llama/Llama-3.2-1B-Instruct"
-```
+Combines multiple data sources, including structured data (Knowledge Graphs) and unstructured web data, to enable advanced synthesis and reasoning for complex queries.
 
-------
+- **Objective**: Address complex, multi-step questions requiring reasoning over multiple data modalities.
 
-## Running Python Code
+---
 
-### Install Required Libraries
+## Setup Instructions
 
-Install `lxml`:
+### Prerequisites
 
-```bash
-pip install lxml
-```
+- Python 3.10
+- CUDA-compatible GPU for optimal performance
+- Hugging Face and vLLM
 
-### Hugging Face CLI Login
+### Environment Setup
 
-Log in to Hugging Face with your token:
-
-```bash
-huggingface-cli login --token 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
-```
-
-### Run the Generate Script
-
-1. Navigate to the 
-
-   ```
-   course_code
-   ```
-
-    directory:
+1. Clone this repository:
 
    ```bash
-   cd course_code
+   git clone https://github.com/Rickyoung221/UCLA-CS245-FALL2024.git
+   cd UCLA-245-FALL2024
    ```
 
-2. Set the GPU environment:
+2. Create a virtual environment:
 
    ```bash
+   conda create -n crag python=3.10
+   conda activate crag
+   ```
+
+3. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Configure Hugging Face:
+
+   ```bash
+   huggingface-cli login --token "YOUR_ACCESS_TOKEN"
    export CUDA_VISIBLE_DEVICES=0
    ```
 
-3. Execute the script:
+5. Runnign the vllm server:
 
    ```bash
+   export CUDA_VISIBLE_DEVICES=0
+   vllm serve meta-llama/Llama-3.2-1B-Instruct --gpu_memory_utilization=0.85 --tensor_parallel_size=1 --dtype="half" --port=8088 --enforce_eager
+   ```
+
+---
+
+## Running the Tasks
+
+### Task 1: Retrieval Summarization
+
+1. Download the dataset: [Task 1 Data](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/problems/retrieval-summarization/dataset_files), or git clone from *https://huggingface.co/datasets/Rickyoung0221/crag/tree/main* (recommend) save in the `./data`.
+
+2. Run the script for inference:
+
+   ```bash
+   cd course_code
+
    python generate.py \
        --dataset_path "data/crag_task_1_dev_v4_release.jsonl.bz2" \
        --split 1 \
@@ -106,9 +119,9 @@ huggingface-cli login --token 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
        --llm_name "meta-llama/Llama-3.2-1B-Instruct"
    ```
 
-### Evaluate the Model
+3. Results are saved in `output/task1/`.
 
-Run the evaluation script:
+4. Evaluate
 
 ```bash
 python evaluate.py \
@@ -118,95 +131,115 @@ python evaluate.py \
     --max_retries 10
 ```
 
-------
+---
 
-## Monitoring System Usage
+### Task 2: Knowledge Graph and Web Retrieval
 
-Monitor CPU and GPU usage with the following commands in separate terminals:
+1. Download the dataset and mock APIs: [Task 2 Data](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/problems/knowledge-graph-and-web-retrieval/dataset_files)
 
-1. GPU usage:
+   1. Generate an SSH key in your gpu server:
+
+      ```bash
+      ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+      cat ~/.ssh/id_rsa.pub
+      ```
+
+   2. Copy the generated public key and add it to the [GitLab SSH Key Settings Page](https://gitlab.aicrowd.com/-/user_settings/ssh_keys/10939).
+
+      Before cloning the repository, ensure that Git Large File Storage (LFS) is installed:
+
+      - Install Git LFS:
+
+      ```bash
+      brew install git-lfs
+      ```
+
+      - Initialize Git LFS:
+
+      ```bash
+      git lfs install
+      ```
+
+   3. Clone the Mock-APi Repository
+
+      Use SSH to clone the CRAG-Mock-API repository:
 
    ```bash
-   watch -n 0.5 nvidia-smi
+   git clone git@gitlab.aicrowd.com:aicrowd/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/crag-mock-api.git
    ```
 
-2. CPU usage:
+   4. Set Up Environment and Start the API Server
+
+      - Navigate to the cloned repository directory:
+
+        ```bash
+        cd crag-mock-api
+        ```
+
+      - Install dependencies and start the API server (refer to the repository documentation for detailed commands).
+
+        ```bash
+        pip install -r requirements.txt
+        ```
+
+      - Start the server
+
+        ```bash
+        uvicorn server:app --reload
+        ```
+
+        Then visit `http://127.0.0.1:8000/docs` to check the APi documentation and test.
+
+2. Run the script for inference:
 
    ```bash
-   watch -n 0.5 "top -b -n1 | head -n 15"
+   python generate.py \
+   --dataset_path "data/crag_task_1_dev_v4_release.jsonl.bz2" \
+   --split 1 \
+   --model_name "task2_rag_baseline" \
+   --llm_name "meta-llama/Llama-3.2-1B-Instruct" \
    ```
 
-------
+3. Evaluate:
 
-## Task 2: 
+   ```bash
+   python evaluate.py \
+     --dataset_path "data/crag_task_1_dev_v4_release.jsonl.bz2" \
+     --model_name "task2_rag_baseline" \
+     --llm_name "meta-llama/Llama-3.2-1B-Instruct" \
+     --max_retries 20
+   ```
 
-## CRAG API Wrapper
+---
 
-The `./utils/cragapi_wrapper.py` file defines the `CRAG` class, which facilitates interaction with the CRAG server. This server provides APIs across various domains such as Open Domain, Movies, Finance, Music, and Sports. Each method corresponds to a specific API endpoint and returns a JSON-formatted response.
+### Task 3: Advanced Synthesis and Reasoning
 
-### Overview of the CRAG Class and Methods
+1. Download the dataset: [Task 3 Data](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/problems/advanced-synthesis-and-reasoning/dataset_files) or clone from *https://huggingface.co/datasets/Rickyoung0221/crag/tree/main* (recommend, much faster to your gpu server)
 
-#### General Method Format
+2. Run the script for inference:
 
-Each method sends a `POST` request to the CRAG server and retrieves a JSON response.
+   ```bash
+   python generate.py \
+   --dataset_path "data/crag_task_3_dev.jsonl.bz2" \
+   --split 1 \
+   --model_name "task3_advanced_baseline" \
+   --llm_name "meta-llama/Llama-3.2-1B-Instruct"
+   ```
 
-#### Supported Domains and Methods
+3. Results are saved in `output/task3/`.
 
-1. **Open Domain**
-   - `open_search_entity_by_name(query: str) -> dict`: Search for an entity by name.
-   - `open_get_entity(entity: str) -> dict`: Retrieve detailed information about an entity.
-2. **Movies**
-   - `movie_get_person_info(person_name: str) -> dict`: Fetch information about a person in the film industry.
-   - `movie_get_movie_info(movie_name: str) -> dict`: Get details about a specific movie.
-   - `movie_get_year_info(year: str) -> dict`: Retrieve movies released in a specific year.
-   - `movie_get_movie_info_by_id(movie_id: int) -> dict`: Get movie details by ID.
-   - `movie_get_person_info_by_id(person_id: int) -> dict`: Get person details by ID.
-3. **Finance**
-   - `finance_get_company_name(query: str) -> dict`: Search for a company by name.
-   - `finance_get_ticker_by_name(query: str) -> dict`: Get the ticker symbol for a company.
-   - `finance_get_price_history(ticker_name: str) -> dict`: Retrieve stock price history.
-   - `finance_get_detailed_price_history(ticker_name: str) -> dict`: Retrieve detailed stock price history.
-   - `finance_get_dividends_history(ticker_name: str) -> dict`: Get dividend history for a stock.
-   - `finance_get_market_capitalization(ticker_name: str) -> dict`: Retrieve market capitalization.
-   - `finance_get_eps(ticker_name: str) -> dict`: Retrieve earnings per share (EPS).
-   - `finance_get_pe_ratio(ticker_name: str) -> dict`: Retrieve the price-to-earnings (PE) ratio.
-   - `finance_get_info(ticker_name: str) -> dict`: Get comprehensive financial information about a company.
-4. **Music**
-   - `music_search_artist_entity_by_name(artist_name: str) -> dict`: Search for an artist by name.
-   - `music_search_song_entity_by_name(song_name: str) -> dict`: Search for a song by name.
-   - `music_get_billboard_rank_date(rank: int, date: str = None) -> dict`: Retrieve Billboard rankings for a specific date.
-   - `music_get_artist_all_works(artist_name: str) -> dict`: Fetch all works by an artist.
-   - Additional methods include retrieving Grammy award details, artist and song information, release dates, and more.
-5. **Sports**
-   - `sports_soccer_get_games_on_date(team_name: str, date: str) -> dict`: Retrieve soccer games for a specific date.
-   - `sports_nba_get_games_on_date(team_name: str, date: str) -> dict`: Retrieve NBA games for a specific date.
-   - `sports_nba_get_play_by_play_data_by_game_ids(game_ids: List[str]) -> dict`: Get play-by-play data for NBA games by their IDs.
+4. Evaluate: （remember extract the dataset file)
 
-------
+   ```bash
+   python evaluate.py \
+   --dataset_path "data/crag_task_3_dev_v4.jsonl.bz2" \
+   --model_name "task3_baseline" \
+   --llm_name "meta-llama/Llama-3.2-1B-Instruct"
+   ```
 
-### Example Usage
+---
 
-Here is an example of how to use the `CRAG` class:
+## Additional Resources
 
-```python
-# Create a CRAG client instance
-crag_client = CRAG()
-
-# Open Domain Example
-entity_search_result = crag_client.open_search_entity_by_name("example entity")
-print(entity_search_result)
-
-# Movie Example
-movie_info = crag_client.movie_get_movie_info("Inception")
-print(movie_info)
-
-# Finance Example
-price_history = crag_client.finance_get_price_history("AAPL")
-print(price_history)
-
-# Sports Example
-soccer_games = crag_client.sports_soccer_get_games_on_date("2023-12-01", "FC Barcelona")
-print(soccer_games)
-```
-
-By using the above methods, you can seamlessly interact with the CRAG server to retrieve data across multiple domains.
+- [Reference Github Repo](*https://github.com/USTCAGI/CRAG-in-KDD-Cup2024/tree/master*)
+- [Official Competition Site](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024)
