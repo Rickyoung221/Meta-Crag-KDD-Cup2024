@@ -211,7 +211,7 @@ class NewRAGModel:
     def expand_queries(self, queries):
         prompts = []
         for query in queries:
-            prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects.")
+            prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects. Please keep the length of extended question within 70 characters and just give the extended query. Don't say anything else.")
         response = self.llm.generate(
             prompts,
             vllm.SamplingParams(
@@ -228,7 +228,7 @@ class NewRAGModel:
         if self.example_count < 3:
             for i in range(len(queries)):
                 print(f'Original query:\n\t{queries[i]}')
-                print(f'Expanded query:\n\t{expand_queries[i]}\n')
+                print(f'Expanded query:\n\t{expanded_queries[i]}\n')
         return expanded_queries
 
     def calculate_embeddings(self, sentences):
@@ -319,7 +319,7 @@ class NewRAGModel:
         for item in chunks:
             if len(item) >= MAX_CONTEXT_SENTENCE_LENGTH-1:
                 chunk_len_limit_count += 1
-        print(f'\nOut of {len(chunks)} chunks, {self.chunk_len_limit_count} reached maximum length.')
+        print(f'\nOut of {len(chunks)} chunks, {chunk_len_limit_count} reached maximum length.')
         # Calculate all chunk embeddings
         chunk_embeddings = self.calculate_embeddings(chunks)
 
