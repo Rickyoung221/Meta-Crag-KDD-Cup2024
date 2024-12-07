@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 #### CONFIG PARAMETERS ---
 
+NUM_CHUNK_PER_SENTENCE = 1
 # Define the number of context sentences to consider for generating an answer.
 NUM_CONTEXT_SENTENCES = 20
 # Set the maximum length for each context sentence (in characters).
@@ -36,8 +37,8 @@ SENTENTENCE_TRANSFORMER_BATCH_SIZE = 32 # TUNE THIS VARIABLE depending on the si
 
 class ChunkExtractor:
 
-    def __init__(self, sentence_group_size):
-        self.sentence_group_size = sentence_group_size
+    def __init__(self):
+        self.sentence_group_size = NUM_CHUNK_PER_SENTENCE
 
     def _extract_chunks(self, interaction_id, html_source):
         """
@@ -91,12 +92,23 @@ class ChunkExtractor:
         """
         group_size = self.sentence_group_size
         grouped_chunks = []
-        for i in range(0, len(sentences), group_size):
-            grouped_chunk = " ".join(sentences[i:i + group_size])
-            grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
+        i = 0
+        new_chunk = ""
+        # Preserve info: only group when the new chunk has length within limit
+        while i < len(sentences):
+            cur_sen = sentences[i]
+            if len(new_chunk + ' ' + cur_sen) < MAX_CONTEXT_SENTENCE_LENGTH:
+                new_chunk += ' ' + cur_sen
+                i += 1
+            else:
+                grouped_chunks.append(new_chunk)
+                new_chunk = ""
+        # for i in range(0, len(sentences), group_size):
+        #     grouped_chunk = " ".join(sentences[i:i + group_size])
+        #     grouped_chunks.append(grouped_chunk[:MAX_CONTEXT_SENTENCE_LENGTH])
         return grouped_chunks
 
-    def extract_chunks(self, queries, batch_interaction_ids, batch_search_results):
+    def extract_chunks(self, batch_interaction_ids, batch_search_results):
         """
         Extracts chunks from given batch search results using parallel processing with Ray.
 
@@ -112,24 +124,13 @@ class ChunkExtractor:
         chunk_dictionary = defaultdict(list)
 
         # Process each HTML source sequentially
-        chunk_len_dist = {}
         for idx, search_results in enumerate(batch_search_results):
-            query = queries[idx]
             for html_text in search_results:
                 interaction_id, _chunks = self._extract_chunks(
                     interaction_id=batch_interaction_ids[idx],
                     html_source=html_text["page_result"]
                 )
-                length = len(_chunks)
-                if length in chunk_len_dist:
-                    chunk_len_dist[length] += 1
-                else:
-                    chunk_len_dist[length] = 1
                 chunk_dictionary[interaction_id].extend(_chunks)
-        print(chunk_len_dist)
-        with open("chunk_len_distribution.json", "w") as f:
-            json.dump(chunk_len_dist, f)
-        raise Exception(f'chuck length distribution: {chunk_len_dist}')
         # Flatten chunks and keep a map of corresponding interaction_ids
         chunks, chunk_interaction_ids = self._flatten_chunks(chunk_dictionary)
 
@@ -167,8 +168,8 @@ class NewRAGModel:
     """
     def __init__(self, llm_name="meta-llama/Llama-3.2-3B-Instruct", is_server=False, vllm_server=None):
         self.initialize_models(llm_name, is_server, vllm_server)
-        self.chunk_extractor = ChunkExtractor(sentence_group_size=3)
-        self.chunk_len_limit_count = 0
+        self.chunk_extractor = ChunkExtractor()
+        self.example_count = 0
 
     def initialize_models(self, llm_name, is_server, vllm_server):
         self.llm_name = llm_name
@@ -206,6 +207,33 @@ class NewRAGModel:
                 "cuda" if torch.cuda.is_available() else "cpu"
             ),
         )
+
+    def expand_queries(self, queries):
+        prompts = []
+        for query in queries:
+            prompts.append(f"Given the query: '{query}', reformulate it to provide additional context and include key details or aspects. Please keep the length of extended question within 70 characters and just give the extended query. Don't say anything else.")
+
+        responses = self.llm.generate(
+                prompts,
+                vllm.SamplingParams(
+                    n=1,  # Number of output sequences to return for each prompt.
+                    top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
+                    temperature=0.1,  # randomness of the sampling
+                    skip_special_tokens=True,  # Whether to skip special tokens in the output.
+                    max_tokens=70,  # Maximum number of tokens to generate per output sequence.
+                ),
+                use_tqdm=False
+            )
+        expanded_queries = []
+        for response in responses:
+            expanded_queries.append(response.outputs[0].text)
+        
+        if self.example_count < 3:
+            for i in range(len(queries)):
+                print(f'Original query:\n\t{queries[i]}')
+                print(f'Expanded query:\n\t{expanded_queries[i]}\n')
+                self.example_count += 1
+        return expanded_queries
 
     def calculate_embeddings(self, sentences):
         """
@@ -273,19 +301,29 @@ class NewRAGModel:
           Failing to adhere to this time constraint **will** result in a timeout during evaluation.
         """
         batch_interaction_ids = batch["interaction_id"]
-        queries = batch["query"]
+        original_queries = batch['query']
+        queries = self.expand_queries(original_queries)
         batch_search_results = batch["search_results"]
         query_times = batch["query_time"]
 
+        # print(queries)
+        # print()
+        # print(queries2)
+
+        # raise Exception('yes!')
+
+        print(f'\nthere are {len(queries)} queries and {len(batch_search_results)} total search.')
+        print(f'\tThe search results have length: {list(map(lambda x: len(x), batch_search_results))}')
+
         # Chunk all search results using ChunkExtractor
         chunks, chunk_interaction_ids = self.chunk_extractor.extract_chunks(
-            queries, batch_interaction_ids, batch_search_results
+            batch_interaction_ids, batch_search_results
         )
-
+        chunk_len_limit_count = 0
         for item in chunks:
             if len(item) >= MAX_CONTEXT_SENTENCE_LENGTH-1:
-                self.chunk_len_limit_count += 1
-        print(f'Out of {len(chunks)} chunks, {self.chunk_len_limit_count} reached maximum length.')
+                chunk_len_limit_count += 1
+        print(f'\nOut of {len(chunks)} chunks, {chunk_len_limit_count} reached maximum length.')
         # Calculate all chunk embeddings
         chunk_embeddings = self.calculate_embeddings(chunks)
 
@@ -344,7 +382,7 @@ class NewRAGModel:
                     skip_special_tokens=True,  # Whether to skip special tokens in the output.
                     max_tokens=50,  # Maximum number of tokens to generate per output sequence.
                 ),
-                use_tqdm=True
+                use_tqdm=False
             )
             answers = []
             for response in responses:

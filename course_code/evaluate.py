@@ -74,23 +74,26 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_path", type=str, default="example_data/dev_data.jsonl.bz2",
                         choices=["example_data/dev_data.jsonl.bz2", # example data
                                  "data/crag_task_1_dev_v4_release.jsonl.bz2", # full data
+                                 "data/crag_task_3_dev_v4.tar.bz2"
                                  ])
 
     parser.add_argument("--model_name", type=str, default="vanilla_baseline",
                         choices=["vanilla_baseline",
-                                 "rag_baseline"
-                                 # add your model here
+                                 "rag_baseline",
+                                 "new_rag_baseline",
+                                 "task2_rag_baseline",
+                                 "task3_rag_baseline"
                                  ],
                         )
 
-    parser.add_argument("--llm_name", type=str, default="meta-llama/Llama-3.2-3B-Instruct",
-                        choices=["meta-llama/Llama-3.2-3B-Instruct",
+    parser.add_argument("--llm_name", type=str, default="meta-llama/Llama-3.2-1B-Instruct",
+                        choices=["meta-llama/Llama-3.2-1B-Instruct",
                                  "google/gemma-2-2b-it",
                                  # can add more llm models here
                                  ])
     parser.add_argument("--is_server", action="store_true", default=False,
                         help="Whether we use vLLM deployed on a server or offline inference.")
-    parser.add_argument("--vllm_server", type=str, default="http://localhost:8088/v1",
+    parser.add_argument("--vllm_server", type=str, default="http://127.0.0.1:8088/v1",
                         help="URL of the vLLM server if is_server is True. The port number may vary.")
     parser.add_argument("--max_retries", type=int, default=10,
                         help="Number of retries for evaluation per query.")
