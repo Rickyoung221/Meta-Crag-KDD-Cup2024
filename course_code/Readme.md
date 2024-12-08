@@ -131,6 +131,8 @@ python evaluate.py \
     --max_retries 10
 ```
 
+Navitage to `./output/data` to see the output.
+
 ---
 
 ### Task 2: Knowledge Graph and Web Retrieval
@@ -210,32 +212,36 @@ python evaluate.py \
      --max_retries 20
    ```
 
+   Navitage to `./output/data` to see the output.
+
 ---
 
 ### Task 3: Advanced Synthesis and Reasoning
 
-1. Download the dataset: [Task 3 Data](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/problems/advanced-synthesis-and-reasoning/dataset_files) or clone from *https://huggingface.co/datasets/Rickyoung0221/crag/tree/main* (recommend, much faster to your gpu server)
+1. Download the dataset: [Task 3 Data](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024/problems/advanced-synthesis-and-reasoning/dataset_files) or clone from *https://huggingface.co/datasets/Rickyoung0221/crag/tree/main* (recommend, much faster to your gpu server rather than upload from local device), and keep the mock APi server running.
 
 2. Run the script for inference:
 
    ```bash
    python generate.py \
-   --dataset_path "data/crag_task_3_dev.jsonl.bz2" \
+   --dataset_path "data/crag_task_3_dev_v4.tar.bz2" \
    --split 1 \
-   --model_name "task3_advanced_baseline" \
+   --model_name "task3_rag_baseline" \
    --llm_name "meta-llama/Llama-3.2-1B-Instruct"
    ```
 
 3. Results are saved in `output/task3/`.
 
-4. Evaluate: （remember extract the dataset file)
+4. Evaluate: (no need to extra the dataset tar)
 
    ```bash
    python evaluate.py \
-   --dataset_path "data/crag_task_3_dev_v4.jsonl.bz2" \
-   --model_name "task3_baseline" \
+   --dataset_path "data/crag_task_3_dev_v4.tar.bz2" \
+   --model_name "task3_rag_baseline" \
    --llm_name "meta-llama/Llama-3.2-1B-Instruct"
    ```
+
+   Navitage to `./output/data` to see the output.
 
 ---
 
