@@ -1,3 +1,10 @@
+# UCLA CS245 Big Data Analytics
+
+Grade Received: A
+
+I did all the coding parts of task 2 and task 3. Grade Received: A
+
+----
 ![banner image](https://aicrowd-production.s3.eu-central-1.amazonaws.com/challenge_images/meta-kdd-cup-24/meta_kdd_cup_24_banner.jpg)
 [![Discord](https://img.shields.io/discord/565639094860775436.svg)](https://discord.gg/yWurtB2huX)
 
